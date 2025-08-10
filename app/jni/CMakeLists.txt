@@ -17,6 +17,8 @@ add_library(
         SHARED
         IIRBlur.cpp
         IIRBlurNeon.cpp
+        IIRBlurNeonFp16.cpp
+        BoxBlur.cpp
         )
 
 target_compile_options(native-lib PUBLIC

@@ -23,14 +23,86 @@
     <ImageView
         android:id="@+id/res1"
         android:layout_width="wrap_content"
-        android:layout_height="200dp" />
-    <TextView
-        android:id="@+id/neon"
-        android:layout_width="wrap_content"
-        android:text="neon"
-        android:layout_height="wrap_content"/>
-    <ImageView
-        android:id="@+id/res2"
-        android:layout_width="wrap_content"
-        android:layout_height="200.dp" />
+        android:layout_height="150dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:orientation="horizontal"
+        android:layout_height="wrap_content">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_height="wrap_content">
+            <TextView
+                android:id="@+id/neon"
+                android:layout_width="wrap_content"
+                android:text="neon"
+                android:layout_height="wrap_content"/>
+            <ImageView
+                android:id="@+id/res2"
+                android:layout_width="wrap_content"
+                android:layout_height="150dp" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:gravity="center"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/fp16"
+                android:layout_width="wrap_content"
+                android:text="neon fp16"
+                android:layout_height="wrap_content"/>
+            <ImageView
+                android:id="@+id/res3"
+                android:layout_width="wrap_content"
+                android:layout_height="150dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:orientation="horizontal"
+        android:layout_height="wrap_content">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_height="wrap_content">
+            <TextView
+                android:id="@+id/fir"
+                android:layout_width="wrap_content"
+                android:text="box"
+                android:layout_height="wrap_content"/>
+            <ImageView
+                android:id="@+id/res4"
+                android:layout_width="wrap_content"
+                android:layout_height="150dp" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:gravity="center"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/gpu"
+                android:layout_width="wrap_content"
+                android:text="gpu"
+                android:layout_height="wrap_content"/>
+            <ImageView
+                android:id="@+id/res5"
+                android:layout_width="wrap_content"
+                android:layout_height="150dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+
+
 </LinearLayout>
