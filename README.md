@@ -5,7 +5,9 @@ Fast Gaussian blur implementation that runs **entirely on the CPU** using an Inf
 * **Scalar** ‑ portable, works on every Android CPU
 * **NEON** ‑ hand‑optimized SIMD kernels that are up to 3× faster on ARMv8 devices
 
-For real use bitmaps should be pre-downscaled
+for comparison fp16 version, box blur and gpu blur also added
+
+For real use bitmaps may be pre-downscaled
 
 ![Demo](demo.png)
 
