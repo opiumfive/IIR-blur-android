@@ -29,16 +29,16 @@ public class MainActivity extends AppCompatActivity {
         TextView fir = findViewById(R.id.fir);
         TextView gpu = findViewById(R.id.gpu);
 
-        res1.setImageBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.back));
-        res2.setImageBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.back));
-        res3.setImageBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.back));
-        res4.setImageBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.back));
-        res5.setImageBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.back));
+        res1.setImageBitmap(sourceBitmap());
+        res2.setImageBitmap(sourceBitmap());
+        res3.setImageBitmap(sourceBitmap());
+        res4.setImageBitmap(sourceBitmap());
+        res5.setImageBitmap(sourceBitmap());
 
         float scale = 1f;
 
         findViewById(R.id.run).setOnClickListener((v) -> {
-            Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.back);
+            Bitmap bitmap = sourceBitmap();
             bitmap = Bitmap.createScaledBitmap(
                     bitmap,
                     (int) (bitmap.getWidth() * scale),
@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
             res1.setImageBitmap(bitmap);
             scalar.setText("Scalar: " + res + " ns for bmp " + bitmap.getWidth() + "x" + bitmap.getHeight());
 
-            Bitmap bitmap2 = BitmapFactory.decodeResource(getResources(), R.drawable.back);
+            Bitmap bitmap2 = sourceBitmap();
             bitmap2 = Bitmap.createScaledBitmap(
                     bitmap2,
                     (int) (bitmap2.getWidth() * scale),
@@ -67,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
             neon.setText("Neon: " + res + " ns");
 
 
-            Bitmap bitmap3 = BitmapFactory.decodeResource(getResources(), R.drawable.back);
+            Bitmap bitmap3 = sourceBitmap();
             bitmap3 = Bitmap.createScaledBitmap(
                     bitmap3,
                     (int) (bitmap3.getWidth() * scale),
@@ -81,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
             res3.setImageBitmap(bitmap3);
             fp16.setText("Neon fp16: " + res + " ns");
 
-            Bitmap bitmap4 = BitmapFactory.decodeResource(getResources(), R.drawable.back);
+            Bitmap bitmap4 = sourceBitmap();
             bitmap4 = Bitmap.createScaledBitmap(
                     bitmap4,
                     (int) (bitmap4.getWidth() * scale),
@@ -95,7 +95,7 @@ public class MainActivity extends AppCompatActivity {
             res4.setImageBitmap(bitmap4);
             fir.setText("box neon: " + res + " ns");
 
-            Bitmap bitmap5 = BitmapFactory.decodeResource(getResources(), R.drawable.back);
+            Bitmap bitmap5 = sourceBitmap();
             bitmap5 = Bitmap.createScaledBitmap(
                     bitmap5,
                     (int) (bitmap5.getWidth() * scale),
@@ -113,4 +113,11 @@ public class MainActivity extends AppCompatActivity {
 
 
     }
+    private Bitmap sourceBitmap() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inMutable = true;
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        return BitmapFactory.decodeResource(getResources(), R.drawable.back, options);
+    }
+
 }

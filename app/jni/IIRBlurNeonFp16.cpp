@@ -21,9 +21,9 @@
   #include <asm/hwcap.h>
 #endif
 
-class ThreadPool {
+class Fp16ThreadPool {
 public:
-    explicit ThreadPool(unsigned n) : done(false) {
+    explicit Fp16ThreadPool(unsigned n) : done(false) {
         big_cores = detect_big_cores();
         if (!big_cores.empty()) {
             n = std::min<unsigned>(n, big_cores.size());
@@ -36,7 +36,7 @@ public:
         }
     }
 
-    ~ThreadPool() {
+    ~Fp16ThreadPool() {
         {
             std::lock_guard<std::mutex> lk(mx);
             done = true;
@@ -148,8 +148,8 @@ private:
     std::vector<int> big_cores;
 };
 
-static ThreadPool& pool() {
-    static ThreadPool p(std::max(2u, std::thread::hardware_concurrency()));
+static Fp16ThreadPool& pool() {
+    static Fp16ThreadPool p(std::max(2u, std::thread::hardware_concurrency()));
     return p;
 }
 

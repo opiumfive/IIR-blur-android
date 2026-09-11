@@ -1,0 +1,4 @@
+Final APK, Android instrumentation: OK (3 tests)
+back.png decoded without resource scaling: 640x1294, sigma=30
+10 warmups, 31 measured calls, pixels reset outside the timed region.
+09-11 16:02:59.474 24081 24102 I IIRBlurBenchmark: Bitmap/JNI 640x1294 sigma=30 median_ms=2.641461 p10_ms=2.327769 p90_ms=3.028807

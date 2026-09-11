@@ -17,14 +17,14 @@
 /* --------------------------------------------------------------------- */
 /* A tiny thread pool                                                    */
 /* --------------------------------------------------------------------- */
-struct ThreadPool {
-    explicit ThreadPool(unsigned n)
+struct ScalarThreadPool {
+    explicit ScalarThreadPool(unsigned n)
             : done(false)
     {
         for (unsigned i = 0; i < n; ++i)
             workers.emplace_back([this]{ worker(); });
     }
-    ~ThreadPool() {
+    ~ScalarThreadPool() {
         {
             std::lock_guard<std::mutex> lk(mx);
             done = true;
@@ -73,8 +73,8 @@ private:
     bool                              done;
 };
 
-static ThreadPool& pool() {
-    static ThreadPool p(std::max(2u, std::thread::hardware_concurrency()));
+static ScalarThreadPool& pool() {
+    static ScalarThreadPool p(std::max(2u, std::thread::hardware_concurrency()));
     return p;
 }
 
