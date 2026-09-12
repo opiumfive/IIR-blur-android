@@ -2,6 +2,8 @@
 #include "reference.h"
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -102,6 +104,51 @@ static void concurrencyTest() {
     for (auto &thread : callers)
         thread.join();
     require(ok, "concurrent calls failed");
+}
+// Many short parallel jobs in quick succession from several callers, with the
+// workers alternately kept awake and sent to sleep: every dispatch sees late
+// joiners, back-outs and wake-ups. A watchdog turns a lost wake-up into a
+// failure instead of a hang.
+static void stressTest() {
+    std::mutex mutex;
+    std::condition_variable finishedCv;
+    bool finished = false;
+    std::thread watchdog([&] {
+        std::unique_lock<std::mutex> lock(mutex);
+        if (!finishedCv.wait_for(lock, std::chrono::seconds(300), [&] { return finished; })) {
+            std::fprintf(stderr, "FAIL: stress test hung (lost wake-up?)\n");
+            std::_Exit(2);
+        }
+    });
+    for (unsigned spin : {0u, 20u, 0u}) {
+        iirblur::setIdleSpin(spin);
+        std::atomic<bool> ok{true};
+        std::vector<std::thread> callers;
+        for (unsigned t = 0; t < 4; ++t)
+            callers.emplace_back([&, t] {
+                const unsigned w = 160, h = 104; // 16640 pixels: the parallel path
+                std::vector<uint8_t> px(size_t(w) * h * 4);
+                for (unsigned i = 0; i < 250; ++i) {
+                    fill(px.data(), w, h, size_t(w) * 4, (i + t) % 6);
+                    auto quality = iirblur::Quality(1 + (i + t) % 3); // fast, precise, draft
+                    if (!iirblur::blur(px.data(), w, h, size_t(w) * 4, 4.f + i % 40, quality))
+                        ok = false;
+                    if (i % 37 == 0)
+                        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                }
+            });
+        for (auto &caller : callers)
+            caller.join();
+        require(ok, "stress: a blur failed");
+    }
+    iirblur::setIdleSpin(20);
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        finished = true;
+    }
+    finishedCv.notify_all();
+    watchdog.join();
+    std::puts("PASS stress: 3000 parallel blurs from 4 callers, workers asleep and awake");
 }
 static void tests() {
     Error total;
@@ -297,8 +344,10 @@ int main(int argc, char **argv) try {
     }
     else if (argc > 1 && std::string(argv[1]) == "--concurrency") {
         concurrencyTest();
+        stressTest();
         std::puts("PASS concurrency");
-    } else
+    } else if (argc > 1 && std::string(argv[1]) == "--stress")
+        stressTest(); else
         benchmark(argc > 1 ? std::stoul(argv[1]) : 640, argc > 2 ? std::stoul(argv[2]) : 1294,
                   argc > 3 ? std::stof(argv[3]) : 30, argc > 4 ? std::stoul(argv[4]) : 31);
     return 0;

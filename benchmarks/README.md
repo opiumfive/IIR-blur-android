@@ -36,6 +36,9 @@ adb -s YOUR_SERIAL shell /data/local/tmp/iirblur-bench 3840 2160 30 31
 python3 benchmarks/run.py --host --sanitize -- --test
 python3 benchmarks/run.py --host --scalar --sanitize -- --test
 python3 benchmarks/run.py --host --tsan -- --concurrency
+# Executor stress: 3000 short parallel blurs from four callers with the
+# workers alternately asleep and awake; a watchdog fails on a lost wake-up.
+python3 benchmarks/run.py --host --tsan -- --stress
 
 # Markdown tables from a results file.
 python3 benchmarks/tables.py benchmarks/samsung-s21.jsonl
@@ -70,8 +73,12 @@ that alpha, padding, guards and constant colours are untouched at 90 small
 sizes. See "Draft quality" below for the numbers.
 
 Host NEON and forced scalar runs passed AddressSanitizer and
-UndefinedBehaviorSanitizer. The concurrent test passed ThreadSanitizer. The
-same correctness suite passed on the Samsung ARM64 CPU. Android instrumentation
+UndefinedBehaviorSanitizer. The concurrent test and the executor stress test
+passed ThreadSanitizer; the stress test also runs with the dispatcher's
+critical windows widened by injected delays (job publication, worker join,
+back-out), which crashed or hung the executor before the fixes it guards.
+The same correctness suite and the stress test passed on the Samsung ARM64
+CPU. Android instrumentation
 also checks the real Bitmap/JNI path for every quality, invalid sigma and
 quality values, immutable bitmaps and RGB565.
 
@@ -127,8 +134,11 @@ number of independent chains, thread placement and clock frequency.
   stay runnable for 20 ms after a job, waiting in `wfe` under the `SCHED_IDLE`
   policy (almost no power, no competition with the app's own threads, but the
   cluster keeps its clock), then sleep. `setIdleSpin()` changes the duration;
-  0 disables it. A job is closed as soon as the caller runs out of tasks, so a
-  worker that is still asleep or starved never delays completion.
+  0 disables it: workers then block right after a job and every dispatch pays
+  the wake-up. A job is closed as soon as the caller runs out of tasks, so a
+  worker that is still asleep or starved never delays completion; the last
+  worker to leave, whether it worked or backed out of a closed job, wakes the
+  caller.
 * **Draft quality** blurs a box-downsampled copy (2x, 4x or 8x, chosen so that
   the reconstruction error stays below about a tenth of a level on smooth
   content) with the fast kernel and interpolates it back bilinearly in 16-bit

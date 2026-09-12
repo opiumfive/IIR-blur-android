@@ -227,10 +227,12 @@ class Executor {
         Job job{&drain, [](void *arg, unsigned slot) {
                     (*static_cast<decltype(drain) *>(arg))(slot);
                 }};
-        // Reopen by subtraction: a worker still backing out of the previous job
-        // may add and subtract one concurrently, which a store would lose.
-        active.fetch_sub(closed, std::memory_order_acq_rel);
+        // Publish the job, then admit workers. A worker late from the previous
+        // job joins through `active` alone, so the descriptor must already be
+        // there. Reopen by subtraction: such a worker may add and subtract one
+        // concurrently, which a store would lose.
         current = &job;
+        active.fetch_sub(closed, std::memory_order_acq_rel);
         {
             std::lock_guard<std::mutex> lock(mutex);
             generation.fetch_add(1, std::memory_order_release);
@@ -243,9 +245,9 @@ class Executor {
         // completion. Only workers already inside are waited for.
         active.fetch_add(closed, std::memory_order_acq_rel);
         auto start = std::chrono::steady_clock::now();
-        const std::chrono::milliseconds spinLimit{std::max(2u, idleSpinMs.load())};
+        const std::chrono::milliseconds spinLimit{idleSpinMs.load()};
         while (active.load(std::memory_order_acquire) != closed) {
-            if (std::chrono::steady_clock::now() - start > spinLimit) {
+            if (spinLimit.count() == 0 || std::chrono::steady_clock::now() - start > spinLimit) {
                 std::unique_lock<std::mutex> lock(mutex);
                 done.wait(lock, [&] { return active.load(std::memory_order_acquire) == closed; });
                 break;
@@ -297,18 +299,29 @@ class Executor {
         return false;
 #endif
     }
+    // Leaves the current job; the last one out wakes the waiting caller. Used
+    // both after working and when backing out of a closed job: a back-out can
+    // be the last decrement too.
+    void leave() {
+        if (active.fetch_sub(1, std::memory_order_acq_rel) == closed + 1) {
+            cpuSignal();
+            std::lock_guard<std::mutex> lock(mutex);
+            done.notify_one();
+        }
+    }
     void worker(unsigned slot) {
         size_t seen = 0;
         for (;;) {
             size_t g;
             auto start = std::chrono::steady_clock::now();
-            const std::chrono::milliseconds spinLimit{std::max(2u, idleSpinMs.load())};
+            const std::chrono::milliseconds spinLimit{idleSpinMs.load()};
             bool lowered = false;
             for (;;) {
                 g = generation.load(std::memory_order_acquire);
                 if (g != seen)
                     break;
-                if (std::chrono::steady_clock::now() - start > spinLimit) {
+                if (spinLimit.count() == 0 ||
+                    std::chrono::steady_clock::now() - start > spinLimit) {
                     std::unique_lock<std::mutex> lock(mutex);
                     wake.wait(lock, [&] {
                         return generation.load(std::memory_order_acquire) != seen;
@@ -327,16 +340,12 @@ class Executor {
                 return;
             // Join the job unless it has already been closed.
             if (active.fetch_add(1, std::memory_order_acq_rel) >= closed) {
-                active.fetch_sub(1, std::memory_order_acq_rel);
+                leave();
                 continue;
             }
             Job *job = current;
             job->fn(job->arg, slot);
-            if (active.fetch_sub(1, std::memory_order_acq_rel) == closed + 1) {
-                cpuSignal();
-                std::lock_guard<std::mutex> lock(mutex);
-                done.notify_one();
-            }
+            leave();
         }
     }
     std::vector<std::thread> workers;
