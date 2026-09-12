@@ -19,11 +19,15 @@ public class BlurInstrumentedTest {
             int[] input = new int[w * 131];
             for (int i = 0; i < input.length; ++i) input[i] = ((i % 256) << 24) | 0x00ff7f00;
             for (float sigma : new float[]{0, 0.5f, 30, 100, 1000}) {
-                bitmap.setPixels(input, 0, w, 0, 0, w, 131);
-                Utils.blurNeon(bitmap, sigma);
-                int[] output = new int[input.length];
-                bitmap.getPixels(output, 0, w, 0, 0, w, 131);
-                assertArrayEquals(input, output);
+                for (int quality : new int[]{Utils.QUALITY_AUTOMATIC, Utils.QUALITY_FAST,
+                        Utils.QUALITY_PRECISE, Utils.QUALITY_DRAFT}) {
+                    bitmap.setPixels(input, 0, w, 0, 0, w, 131);
+                    if (quality == Utils.QUALITY_AUTOMATIC) Utils.blurNeon(bitmap, sigma);
+                    else Utils.blurNeon(bitmap, sigma, quality);
+                    int[] output = new int[input.length];
+                    bitmap.getPixels(output, 0, w, 0, 0, w, 131);
+                    assertArrayEquals("quality " + quality + " sigma " + sigma, input, output);
+                }
             }
             bitmap.recycle();
         }
@@ -36,6 +40,10 @@ public class BlurInstrumentedTest {
             catch (IllegalArgumentException expected) { }
         }
         try { Utils.blurNeon(null, 1); fail("Accepted null"); }
+        catch (IllegalArgumentException expected) { }
+        try { Utils.blurNeon(bitmap, 1, 4); fail("Accepted an unknown quality"); }
+        catch (IllegalArgumentException expected) { }
+        try { Utils.blurNeon(bitmap, 1, -1); fail("Accepted a negative quality"); }
         catch (IllegalArgumentException expected) { }
         Bitmap immutable = bitmap.copy(Bitmap.Config.ARGB_8888, false);
         try { Utils.blurNeon(immutable, 1); fail("Accepted immutable bitmap"); }
@@ -57,20 +65,25 @@ public class BlurInstrumentedTest {
         int w = bitmap.getWidth(), h = bitmap.getHeight();
         int[] pixels = new int[w * h];
         bitmap.getPixels(pixels, 0, w, 0, 0, w, h);
-        long[] times = new long[31];
-        for (int i = -10; i < times.length; ++i) {
-            bitmap.setPixels(pixels, 0, w, 0, 0, w, h);
-            long start = System.nanoTime();
-            Utils.blurNeon(bitmap, 30);
-            long ns = System.nanoTime() - start;
-            if (i >= 0) times[i] = ns;
+        String[] names = {"fast", "precise", "draft"};
+        int[] qualities = {Utils.QUALITY_FAST, Utils.QUALITY_PRECISE, Utils.QUALITY_DRAFT};
+        for (int q = 0; q < qualities.length; ++q) {
+            long[] times = new long[31];
+            for (int i = -10; i < times.length; ++i) {
+                bitmap.setPixels(pixels, 0, w, 0, 0, w, h);
+                long start = System.nanoTime();
+                Utils.blurNeon(bitmap, 30, qualities[q]);
+                long ns = System.nanoTime() - start;
+                if (i >= 0) times[i] = ns;
+            }
+            Arrays.sort(times);
+            Log.i("IIRBlurBenchmark", "Bitmap/JNI " + names[q] + " " + w + "x" + h
+                    + " sigma=30 median_ms=" + times[15] / 1e6 + " p10_ms=" + times[3] / 1e6
+                    + " p90_ms=" + times[27] / 1e6);
+            int[] result = new int[w * h];
+            bitmap.getPixels(result, 0, w, 0, 0, w, h);
+            assertFalse("Blur did not change the image", Arrays.equals(pixels, result));
         }
-        Arrays.sort(times);
-        Log.i("IIRBlurBenchmark", "Bitmap/JNI " + w + "x" + h + " sigma=30 median_ms="
-                + times[15] / 1e6 + " p10_ms=" + times[3] / 1e6 + " p90_ms=" + times[27] / 1e6);
-        int[] result = new int[w * h];
-        bitmap.getPixels(result, 0, w, 0, 0, w, h);
-        assertFalse("Blur did not change the image", Arrays.equals(pixels, result));
         bitmap.recycle();
     }
 }

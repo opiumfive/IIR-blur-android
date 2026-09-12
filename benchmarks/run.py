@@ -10,6 +10,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "6f1eda35454634912006676eabbbc4388e50044d"
+PREVIOUS = "455f960"  # first optimized NEON version (fp32 strips), kept as a reference point
 
 def run(args, **kwargs):
     return subprocess.run([str(x) for x in args], check=True, **kwargs)
@@ -23,7 +24,7 @@ def main():
     parser.add_argument("--ndk", type=Path)
     parser.add_argument("--serial", default=os.environ.get("ANDROID_SERIAL"))
     parser.add_argument("--build-only", action="store_true")
-    parser.add_argument("args", nargs=argparse.REMAINDER, help="-- --test, or -- width height sigma rounds")
+    parser.add_argument("args", nargs=argparse.REMAINDER, help="-- --test, or -- [--only fast,draft] [--gap 16] width height sigma rounds")
     opt = parser.parse_args()
     if (opt.sanitize or opt.tsan) and not opt.host:
         parser.error("sanitizers are supported with --host")
@@ -64,6 +65,15 @@ def main():
             obj = out / (label + ".o")
             run([compiler, *flags, "-Os", "-ffast-math", "-funroll-loops", "-fno-strict-aliasing", "-c", path, "-o", obj])
             objects.append(obj)
+        # The previous optimized core is compiled unchanged under another namespace.
+        source = subprocess.check_output(["git", "show", f"{PREVIOUS}:app/jni/IIRBlurFast.cpp"], cwd=ROOT, text=True)
+        source = source.replace('#include "IIRBlur.h"', "#include <cstddef>\n#include <cstdint>\nnamespace iirblur_prev { bool blur(uint8_t *, unsigned, unsigned, size_t, float); }")
+        source = source.replace("namespace iirblur {", "namespace iirblur_prev {").replace("} // namespace iirblur", "} // namespace iirblur_prev")
+        path = out / "previous.cpp"
+        path.write_text(source)
+        obj = out / "previous.o"
+        run([compiler, *flags, "-O3", "-ffp-contract=fast", "-c", path, "-o", obj])
+        objects.append(obj)
         flags += ["-DIIRBLUR_HAVE_BASELINE"]
     if opt.scalar:
         flags += ["-DIIRBLUR_FORCE_SCALAR"]

@@ -14,12 +14,11 @@ void throwJava(JNIEnv *env, const char *type, const char *message) {
 }
 } // namespace
 
-extern "C" JNIEXPORT void JNICALL Java_com_opiumfive_iirblurdemo_Utils_blurNeon(JNIEnv *env, jclass,
-                                                                                jobject bitmap,
-                                                                                jfloat sigma) {
-    if (!bitmap || !std::isfinite(sigma) || sigma < 0) {
+namespace {
+void blurBitmap(JNIEnv *env, jobject bitmap, jfloat sigma, jint quality) {
+    if (!bitmap || !std::isfinite(sigma) || sigma < 0 || quality < 0 || quality > 3) {
         throwJava(env, "java/lang/IllegalArgumentException",
-                  "A bitmap and a finite, non-negative sigma are required");
+                  "A bitmap, a finite non-negative sigma and a valid quality are required");
         return;
     }
     AndroidBitmapInfo info{};
@@ -43,9 +42,27 @@ extern "C" JNIEXPORT void JNICALL Java_com_opiumfive_iirblurdemo_Utils_blurNeon(
         throwJava(env, "java/lang/IllegalArgumentException", "Unable to lock bitmap pixels");
         return;
     }
-    bool ok =
-        iirblur::blur(static_cast<uint8_t *>(pixels), info.width, info.height, info.stride, sigma);
+    bool ok = iirblur::blur(static_cast<uint8_t *>(pixels), info.width, info.height, info.stride,
+                            sigma, static_cast<iirblur::Quality>(quality));
     AndroidBitmap_unlockPixels(env, bitmap);
     if (!ok)
         throwJava(env, "java/lang/OutOfMemoryError", "Unable to allocate blur workspace");
+}
+} // namespace
+
+extern "C" JNIEXPORT void JNICALL Java_com_opiumfive_iirblurdemo_Utils_blurNeon__Landroid_graphics_Bitmap_2F(
+    JNIEnv *env, jclass, jobject bitmap, jfloat sigma) {
+    blurBitmap(env, bitmap, sigma, 0);
+}
+
+// quality: 0 automatic, 1 fast, 2 precise, 3 draft (see Utils.java and IIRBlur.h).
+extern "C" JNIEXPORT void JNICALL Java_com_opiumfive_iirblurdemo_Utils_blurNeon__Landroid_graphics_Bitmap_2FI(
+    JNIEnv *env, jclass, jobject bitmap, jfloat sigma, jint quality) {
+    blurBitmap(env, bitmap, sigma, quality);
+}
+
+// Worker threads stay awake this long after a blur (default 20 ms); see IIRBlur.h.
+extern "C" JNIEXPORT void JNICALL Java_com_opiumfive_iirblurdemo_Utils_setBlurIdleSpin(JNIEnv *, jclass,
+                                                                                        jint milliseconds) {
+    iirblur::setIdleSpin(milliseconds < 0 ? 0u : unsigned(milliseconds));
 }
